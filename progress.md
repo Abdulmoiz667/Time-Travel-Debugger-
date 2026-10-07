@@ -7,3 +7,16 @@ Studied the project requirements and understood the overall Phase 01
 
 4th october 2026 
 start task 0 (validation )
+
+5th october 
+done with task 0
+implemented the 4 functions 
+read source line 
+first word 
+second word 
+validate program(check for nested function impletented as well )
+
+6th october 
+
+
+
