@@ -17,6 +17,7 @@ second word
 validate program(check for nested function impletented as well )
 
 6th october 
+started task 1
 
 
 
