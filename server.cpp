@@ -37,9 +37,9 @@ class Stack
     struct Node
     {
         T data;
-        Node *next;
+        Node* next;
     };
-    Node *top;
+    Node* top;
     int32_t count;
 
 public:
@@ -47,7 +47,7 @@ public:
     Stack()
     { // initialize the stack
     }
-    void push(const T &val)
+    void push(const T& val)
     {
 
         // pushes the value on the stack if max limit is not reached yet.
@@ -56,7 +56,7 @@ public:
     {
         // pop the top value on the stack
     }
-    T &peek()
+    T& peek()
     {
         // returns the top value on the stack
     }
@@ -78,13 +78,13 @@ public:
 struct Snapshot; // fwd declaration;
 struct TimelineNode
 {
-    Snapshot *data;
-    TimelineNode *next;
-    TimelineNode *prev;
+    Snapshot* data;
+    TimelineNode* next;
+    TimelineNode* prev;
 };
 class Timeline
 {
-    TimelineNode *head, *tail;
+    TimelineNode* head, * tail;
     int32_t stepCount;
 
 public:
@@ -92,11 +92,11 @@ public:
     Timeline()
     {
     }
-    void record(Snapshot *s)
+    void record(Snapshot* s)
     {
         // add record in the timeline
     }
-    TimelineNode *begin()
+    TimelineNode* begin()
     {
     }
     int32_t getStepCount()
@@ -131,7 +131,7 @@ struct TTDBHeader
     int32_t stepCount;
     int64_t indexOffset;
 };
-void writeHeader(FILE *f, const TTDBHeader &h)
+void writeHeader(FILE* f, const TTDBHeader& h)
 {
     fwrite(h.magic, 1, 4, f);
     fwrite(&h.version, sizeof(int32_t), 1, f);
@@ -154,34 +154,110 @@ struct PendingPatch
 
 
 // PASS 0x0: READING source.bin + VALIDITY CHECK
-bool readSourceLine(ifstream &in, string &out)
+bool readSourceLine(ifstream& in, string& out)
 {
-    // reads the next nonblank line
+    while (getline(in, out))
+    {
+        if (out != "")
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
-string firstWord(const string &line)
+string firstWord(const string& line)
 {
     // returns first word from the input string
+    string word = "";
+    for (int i = 0; i < line.length(); i++)
+    {
+        if (line[i] == ' ')
+        {
+            return word;
+        }
+        word = word + line[i];
+    }
+   
+    return word;
 }
-string secondWord(const string &line)
+string secondWord(const string& line)
 {
     // returns the second word
+    int count = 0;
+    string word = "";
+    for (int i = 0; i < line.length(); i++)
+    {
+        if (line[i] == ' ')
+        {
+            count++;
+            if (count == 2)
+            {
+                return word;
+            }
+            continue;
+        }
+        if (count == 1)
+        {
+            word = word + line[i];
+        }
+    }
+    return word;
+    
+
 }
-bool validateProgram(const char *sourcePath)
+bool validateProgram(const char* sourcePath)
 {
     // for each func defined there should be exactly one func_end and no nested funcs allowed - 
+    ifstream rdr(sourcePath);
+    if (!rdr)
+    {
+        return false;
+    }
+    string line;
+    bool infunc = false;
+    while (readSourceLine(rdr,line))
+    {
+        string word = firstWord(line);
+
+        if (word == "func")
+        {
+            if (infunc == true)
+            {
+                return false;
+            }
+
+            infunc = true;
+        }
+
+        if (word == "func_end")
+        {
+            if (infunc == false)
+            {
+                return false;
+            }
+
+            infunc = false;
+        }
+    }
+    if (infunc == true)
+    {
+        return false;
+    }
+    return true;
 }
 
 // PASS 0x1: RESOLVE() -> resolve.bin
-int64_t writeResolveRecord(FILE *f, int64_t offsetField, const string &text)
+int64_t writeResolveRecord(FILE* f, int64_t offsetField, const string& text)
 {
     // writes one [offset(8B)][size(4B)][string] record at the current file position
     // returns this record's own starting byte position
 }
-int64_t readResolveRecord(FILE *f, string &outText)
+int64_t readResolveRecord(FILE* f, string& outText)
 {
     // reads one record at the current position and advances past it, returns the offset field - the raw line text comes back untouched in outText.
 }
-int64_t resolveProgram(const char *sourcePath, const char *resolveBinPath)
+int64_t resolveProgram(const char* sourcePath, const char* resolveBinPath)
 {
     FuncEntry funcArray[MAX_FUNCS];
     int32_t funcCount = 0;
@@ -209,18 +285,18 @@ struct Token
     TokenType type;
     string text;
 };
-int32_t tokenizeLine(const string &line, Token tokens[], int32_t maxTokens)
+int32_t tokenizeLine(const string& line, Token tokens[], int32_t maxTokens)
 {
     // first word is always a instruction keyword
     // instruction set = [func, func_end, call, set, add, sub, mul and div]
     // next word is identifier like name of a function, variable name
     // after identifier all are the params/arg, space separated
 }
-Snapshot *buildSnapshot(Stack<Frame> &callStack)
+Snapshot* buildSnapshot(Stack<Frame>& callStack)
 {
     // build the snapshot based on the callStack given
 }
-void executeProgram(const char *resolveBinPath, int64_t mainOffset, Timeline &timeline)
+void executeProgram(const char* resolveBinPath, int64_t mainOffset, Timeline& timeline)
 {
     // initialize the call stack
     // make the main frame
@@ -231,7 +307,7 @@ void executeProgram(const char *resolveBinPath, int64_t mainOffset, Timeline &ti
 }
 
 // PASS 0x3: SERIALIZE TIMELINE
-void writeTdbg(Timeline &timeline, const char *tdbgPath)
+void writeTdbg(Timeline& timeline, const char* tdbgPath)
 {
     // placeholder for header
     // index array of the size of stepcount from the timeline
