@@ -252,10 +252,38 @@ int64_t writeResolveRecord(FILE* f, int64_t offsetField, const string& text)
 {
     // writes one [offset(8B)][size(4B)][string] record at the current file position
     // returns this record's own starting byte position
+
+    uint32_t size = text.size();
+
+    fwrite(&offsetField, sizeof(offsetField), 1, f);
+    fwrite(&size, sizeof(size), 1, f);
+
+    for (int i = 0; i < size; i++)
+    {
+        fwrite(&text[i], sizeof(char), 1, f);
+    }
+
+    return offsetField;
 }
 int64_t readResolveRecord(FILE* f, string& outText)
 {
     // reads one record at the current position and advances past it, returns the offset field - the raw line text comes back untouched in outText.
+    int64_t offsetField;
+    uint32_t size;
+
+    fread(&offsetField, sizeof(offsetField), 1, f);
+    fread(&size, sizeof(size), 1, f);
+
+    outText = "";
+
+    for (int i = 0; i < size; i++)
+    {
+        char ch;
+        fread(&ch, sizeof(char), 1, f);
+        outText = outText + ch;
+    }
+
+    return offsetField;
 }
 int64_t resolveProgram(const char* sourcePath, const char* resolveBinPath)
 {
@@ -271,6 +299,160 @@ int64_t resolveProgram(const char* sourcePath, const char* resolveBinPath)
     // with its target's position. Patching happens after the full write
     // Returns the byte offset of main's FUNC header record.
     // if there is no main return the error 
+
+    FILE* source = fopen(sourcePath, "r");
+    FILE* output = fopen(resolveBinPath, "wb");
+
+    if (source == nullptr)
+    {
+        return -1;
+    }
+
+    if (output == nullptr)
+    {
+        fclose(source);
+        return -1;
+    }
+
+    string line;
+    int64_t offset = 0;
+    int64_t mainOffset = -1;
+    char buffer[4096];
+
+    while (fgets(buffer, sizeof(buffer), source) != nullptr)
+    {
+        line = buffer;
+
+        if (line.length() > 0 && line[line.length() - 1] == '\n')
+        {
+            line.erase(line.length() - 1);
+        }
+
+        int64_t recordPosition = offset;
+        int64_t offsetField = 0;
+
+        string word = "";
+        int i = 0;
+
+        while (i < (int)line.length() && line[i] == ' ')
+        {
+            i++;
+        }
+
+        while (i < (int)line.length() && line[i] != ' ')
+        {
+            word += line[i];
+            i++;
+        }
+
+        if (word == "func")
+        {
+            string funcName = "";
+
+            while (i < (int)line.length() && line[i] == ' ')
+            {
+                i++;
+            }
+
+            while (i < (int)line.length() && line[i] != ' ')
+            {
+                funcName += line[i];
+                i++;
+            }
+
+            if (funcCount >= MAX_FUNCS)
+            {
+                fclose(source);
+                fclose(output);
+                return -1;
+            }
+
+            for (int j = 0; j < funcCount; j++)
+            {
+                if (funcArray[j].funcName == funcName)
+                {
+                    fclose(source);
+                    fclose(output);
+                    return -1;
+                }
+            }
+
+            funcArray[funcCount].funcName = funcName;
+            funcArray[funcCount].byteOffsetInResolveBin = recordPosition;
+            funcCount++;
+
+            if (funcName == "main")
+            {
+                mainOffset = recordPosition;
+            }
+        }
+        else if (word == "call")
+        {
+            string funcName = "";
+
+            while (i < (int)line.length() && line[i] == ' ')
+            {
+                i++;
+            }
+
+            while (i < (int)line.length() && line[i] != ' ')
+            {
+                funcName += line[i];
+                i++;
+            }
+
+            if (patchCount >= MAX_PATCHES)
+            {
+                fclose(source);
+                fclose(output);
+                return -1;
+            }
+
+            patches[patchCount].targetFuncName = funcName;
+            patches[patchCount].byteOffsetOfOffsetField = recordPosition;
+            patchCount++;
+        }
+
+        writeResolveRecord(output, offsetField, line);
+        offset += 12 + line.length();
+    }
+
+    fclose(source);
+
+    for (int i = 0; i < patchCount; i++)
+    {
+        bool found = false;
+
+        for (int j = 0; j < funcCount; j++)
+        {
+            if (patches[i].targetFuncName == funcArray[j].funcName)
+            {
+                int64_t targetOffset = funcArray[j].byteOffsetInResolveBin;
+
+                fseek(output, (long)patches[i].byteOffsetOfOffsetField, SEEK_SET);
+                fwrite(&targetOffset, sizeof(targetOffset), 1, output);
+
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            fclose(output);
+            return -1;
+        }
+    }
+
+    fclose(output);
+
+    if (mainOffset == -1)
+    {
+        return -1;
+    }
+
+    return mainOffset;
+
 }
 
 // PASS 0x2: EXECUTION (tokenization happens here)
