@@ -18,6 +18,13 @@ validate program(check for nested function impletented as well )
 
 6th october 
 started task 1
+did function 1 (write records in resolve.bin in the specified format  )
+did func 2 (reading record from resolve.bin)
+
+
+
+9th october 
+did func 3(task 1)
 
 
 
